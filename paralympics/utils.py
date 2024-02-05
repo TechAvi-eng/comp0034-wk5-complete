@@ -56,17 +56,3 @@ def add_data(db):
                 db.session.add(e)
             db.session.commit()
 
-
-def configure_logging(app):
-    """ Configures Flask logging to a file.
-
-    Logging level is set to DEBUG when testing which generates more detail.
-    """
-    logging.basicConfig(format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
-    if app.config['TESTING']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        handler = logging.FileHandler('paralympics_tests.log')  # Log to a file
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-        handler = logging.FileHandler('paralympics.log')  # Log to a file
-    app.logger.addHandler(handler)

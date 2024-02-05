@@ -1,4 +1,5 @@
 import os
+from logging.config import dictConfig
 
 from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
@@ -34,8 +35,29 @@ ma = Marshmallow()
 
 
 def create_app(test_config=None):
+    # Configure logging https://flask.palletsprojects.com/en/3.0.x/logging/#logging
+    dictConfig({
+        'version': 1,
+        'formatters': {'default': {
+            'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+        }},
+        'handlers':
+            {'wsgi': {
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://flask.logging.wsgi_errors_stream',
+                'formatter': 'default'
+            },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "filename": "paralympics_log.log",
+                    "formatter": "default",
+                },
+            },
+        "root": {"level": "DEBUG", "handlers": ["wsgi", "file"]},
+    })
+
     # create and configure the app
-    app = Flask('paralympics', instance_relative_config=True)
+    app = Flask(__name__, instance_relative_config=True)
 
     app.config.from_mapping(
         # Generate your own SECRET_KEY using python secrets
@@ -44,6 +66,8 @@ def create_app(test_config=None):
         SQLALCHEMY_DATABASE_URI="sqlite:///" + os.path.join(app.instance_path, 'paralympics.sqlite')
     )
 
+    app.logger.info("The app is starting...")
+
     if test_config is None:
         # load the instance config, if it exists, when not testing
         app.config.from_pyfile('config.py', silent=True)
@@ -51,15 +75,11 @@ def create_app(test_config=None):
         # load the test config if passed in
         app.config.from_mapping(test_config)
 
-    # ensure the instance folder exists
+        # ensure the instance folder exists
     try:
         os.makedirs(app.instance_path)
     except OSError:
         pass
-
-    # Configure logging
-    from paralympics.utils import configure_logging
-    configure_logging(app)
 
     # Register the custom 404 error handler that is defined in this python file
     app.register_error_handler(401, handle_404_error)
