@@ -37,16 +37,19 @@ class Event(db.Model):
     highlights: Mapped[str] = mapped_column(db.String, nullable=True)
 
 
-class User(db.Model):
+class Account(db.Model):
     id: Mapped[int] = mapped_column(db.Integer, primary_key=True)
     email: Mapped[str] = mapped_column(db.String, unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(db.String, nullable=False)
+    university: Mapped[str] = mapped_column(db.String, nullable=False)
     password_hash: Mapped[str] = mapped_column(db.String, unique=True, nullable=False)
 
     def __repr__(self):
-        return '<User {}>'.format(self.email)
+        return '<Account {}>'.format(self.email), '<Account {}>'.format(self.name), '<Account {}>'.format(self.university)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+

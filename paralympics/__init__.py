@@ -92,7 +92,7 @@ def create_app(test_config=None):
 
     # Models are defined in the models module, so you must import them before calling create_all, otherwise SQLAlchemy
     # will not know about them.
-    from paralympics.models import User, Region, Event
+    from paralympics.models import Account, Region, Event
     # Create the tables in the database
     # create_all does not update tables if they are already in the database.
     with app.app_context():

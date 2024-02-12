@@ -3,7 +3,7 @@ from functools import wraps
 import jwt
 from flask import request, make_response, current_app as app
 from paralympics import db
-from paralympics.models import User
+from paralympics.models import Account
 
 
 def token_required(f):
@@ -25,20 +25,20 @@ def token_required(f):
             return make_response(response, 401)
         # Check the token is valid
         token_payload = decode_auth_token(token)
-        user_id = token_payload["sub"]
-        # Find the user in the database using their email address which is in the data of the decoded token
-        current_user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar_one_or_none()
-        if not current_user:
+        account_id = token_payload["sub"]
+        # Find the account in the database using their email address which is in the data of the decoded token
+        current_account = db.session.execute(db.select(Account).filter_by(id=account_id)).scalar_one_or_none()
+        if not current_account:
             response = {"message": "Invalid or missing token."}
             return make_response(response, 401)
         return f(*args, **kwargs)
     return decorator
 
 
-def encode_auth_token(user_id):
+def encode_auth_token(account_id):
     """Generates the Auth Token
 
-    :param: string user_id  The user id of the user logging in
+    :param: string account_id  The account id of the account logging in
     :return: string
     """
     try:
@@ -48,7 +48,7 @@ def encode_auth_token(user_id):
             payload={
                 "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=5),
                 "iat": datetime.datetime.now(datetime.UTC),
-                "sub": user_id,
+                "sub": account_id,
             },
             # Flask app secret key, matches the key used in the decode() in the decorator
             key=app.config['SECRET_KEY'],

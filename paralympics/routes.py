@@ -5,8 +5,8 @@ from sqlalchemy import exc
 from marshmallow.exceptions import ValidationError
 
 from paralympics import db
-from paralympics.models import Region, Event, User
-from paralympics.schemas import RegionSchema, EventSchema, UserSchema
+from paralympics.models import Region, Event, Account
+from paralympics.schemas import RegionSchema, EventSchema, AccountSchema
 from paralympics.helpers import token_required, encode_auth_token
 
 # Flask-Marshmallow Schemas
@@ -14,7 +14,7 @@ regions_schema = RegionSchema(many=True)
 region_schema = RegionSchema()
 events_schema = EventSchema(many=True)
 event_schema = EventSchema()
-user_schema = UserSchema()
+account_schema = AccountSchema()
 
 
 # REGION ROUTES
@@ -116,7 +116,7 @@ def delete_region(noc_code):
     except exc.SQLAlchemyError as e:
         # Log the exception with the error
         app.logger.error(f"A SQLAlchemy database error occurred: {str(e)}")
-        # Report a 404 error to the user who made the request
+        # Report a 404 error to the account who made the request
         msg_content = f'Region {noc_code} not found.'
         msg = {'message': msg_content}
         return make_response(msg, 404)
@@ -256,33 +256,35 @@ def event_update(event_id):
 # AUTHENTICATION ROUTES
 @app.post("/register")
 def register():
-    """Register a new user for the REST API
+    """Register a new account for the REST API
 
     If successful, return 201 Created.
     If email already exists, return 409 Conflict (resource already exists).
     If any other error occurs, return 500 Server error
     """
     # Get the JSON data from the request
-    user_json = request.get_json()
-    # Check if user already exists, returns None if the user does not exist
-    user = db.session.execute(
-        db.select(User).filter_by(email=user_json.get("email"))
+    account_json = request.get_json()
+    # Check if account already exists, returns None if the account does not exist
+    account = db.session.execute(
+        db.select(Account).filter_by(email=account_json.get("email"))
     ).scalar_one_or_none()
-    if not user:
+    if not account:
         try:
-            # Create new User object
-            user = User(email=user_json.get("email"))
+            # Create new Account object
+            account = Account(email=account_json.get("email"))
             # Set the hashed password
-            user.set_password(password=user_json.get("password"))
-            # Add user to the database
-            db.session.add(user)
+            account.set_password(password=account_json.get("password"))
+            account.name = account_json.get("name")
+            account.university = account_json.get("university")
+            # Add account to the database
+            db.session.add(account)
             db.session.commit()
             # Return success message
             response = {
                 "message": "Successfully registered.",
             }
-            # Log the registered user
-            app.logger.info(f"{user.email} registered at {datetime.datetime.now(datetime.UTC)}")
+            # Log the registered account
+            app.logger.info(f"{account.email} registered at {datetime.datetime.now(datetime.UTC)}")
             return make_response(jsonify(response)), 201
         except exc.SQLAlchemyError as e:
             app.logger.error(f"A SQLAlchemy database error occurred: {str(e)}")
@@ -292,18 +294,18 @@ def register():
             return make_response(jsonify(response)), 500
     else:
         response = {
-            "message": "User already exists. Please Log in.",
+            "message": "Account already exists. Please Log in.",
         }
         return make_response(jsonify(response)), 409
 
 
 @app.post('/login')
 def login():
-    """Logins in the User and generates a token
+    """Logins in the Account and generates a token
 
     If the email and password are not present in the HTTP request, return 401 error
-    If the user is not found in the database, or the password is incorrect, return 401 error
-    If the user is logged in and the token is generated, return the token and 201 Success
+    If the account is not found in the database, or the password is incorrect, return 401 error
+    If the account is logged in and the token is generated, return the token and 201 Success
     """
     auth = request.get_json()
 
@@ -312,18 +314,51 @@ def login():
         msg = {'message': 'Missing email or password'}
         return make_response(msg, 401)
 
-    # Find the user in the database
-    user = db.session.execute(
-        db.select(User).filter_by(email=auth.get("email"))
+    # Find the account in the database
+    account = db.session.execute(
+        db.select(Account).filter_by(email=auth.get("email"))
     ).scalar_one_or_none()
 
-    # If the user is not found, or the password is incorrect, return 401 error
-    if not user or not user.check_password(auth.get('password')):
+    # If the account is not found, or the password is incorrect, return 401 error
+    if not account or not account.check_password(auth.get('password')):
         msg = {'message': 'Incorrect email or password.'}
         return make_response(msg, 401)
 
     # If all OK then create the token
-    token = encode_auth_token(user.id)
+    token = encode_auth_token(account.id)
 
-    # Return the token and the user_id of the logged in user
-    return make_response(jsonify({"user_id": user.id, "token": token}), 201)
+    # Return the token and the account_id of the logged in account
+    return make_response(jsonify({"account_id": account.id, "token": token}), 201)
+
+
+@app.delete('/account')
+def delete_account():
+    email = request.get_json().get('email')
+    password = request.get_json().get('password')
+    
+    account = db.session.execute(
+        db.select(Account).filter_by(email=email)
+    ).scalar_one_or_none()
+
+    if account and account.check_password(password):
+        db.session.delete(account)
+        db.session.commit()
+        return make_response(jsonify({"message": "Account deleted"}), 200)
+    else:
+        return make_response(jsonify({"message": "Invalid email or password"}), 401)
+    
+
+@app.patch("/account")
+def account_update():
+    account_json = request.get_json()
+
+    account = db.session.execute(
+        db.select(Account).filter_by(email=account_json.get("email"))
+    ).scalar_one_or_none()
+
+    if account and account.check_password(account_json.get("old password")):
+        account.set_password(password=account_json.get("new password"))
+        db.session.commit()
+        return make_response(jsonify({"message": "Password updated"}), 200)
+    else:
+        return make_response(jsonify({"message": "Invalid email or password"}), 401)
